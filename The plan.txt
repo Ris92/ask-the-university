@@ -1,0 +1,45 @@
+Here's a project that fits your background well: a **university data assistant** that answers questions using both documents and data tables. It covers RAG, agentic AI design and LLM evaluation, and it uses Databricks and SQL, which you already know. It also mirrors your real work at the university without touching any confidential data.
+
+**The project: "Ask the University" agent**
+
+A chat assistant that answers two kinds of questions:
+
+- **Policy questions from documents (RAG):** "What's the deadline to drop a class without a W?" It searches public course catalogs, academic policies and FAQ pages.
+- **Data questions from tables (SQL agent):** "How has enrollment in engineering changed since 2018?" It writes and runs SQL against public data.
+
+The agent decides which tool to use, or combines both, then answers with citations.
+
+**Data, all public:**
+
+- Documents: a public university's course catalog, academic policies and student handbook (PDFs or web pages)
+- Tables: IPEDS data from the U.S. Department of Education, which covers enrollment, graduation rates and costs for every U.S. college
+
+**Stack:**
+
+- Databricks Free Edition, or a local Python setup
+- Delta tables for the IPEDS data
+- Vector search for the documents (Databricks Vector Search, or ChromaDB locally)
+- An LLM API (Claude or Azure OpenAI)
+- A small Flask or FastAPI app for the chat interface
+- Git, with the project on GitHub
+
+**Build it in stages, about two weekends:**
+
+1. **RAG over documents.** Chunk the policy PDFs, embed them, and answer questions with citations. This alone is enough to list RAG honestly.
+2. **SQL tool.** Load IPEDS into tables and let the LLM write and run read-only SQL. Reuse your guardrail instincts here: block write queries and check table names.
+3. **Agent routing.** Give the LLM both tools and let it choose. This is your "agentic AI design" experience.
+4. **Evaluation, your differentiator.** Write 30–50 test questions with known answers. Measure accuracy, citation correctness and SQL success rate. Then run prompt injection tests against your own agent, like you did at work, and document what you fixed.
+
+**Optional stretch for fine-tuning:** Fine-tune a small open model to classify questions as policy, data or both, and compare it to simple prompting. This is a small, honest way to list fine-tuning, since most AI engineer roles care more about evaluation than about training models.
+
+**What you could put on your resume afterward:**
+
+- Built a university Q&A agent combining RAG over [X] policy documents with a text-to-SQL tool on IPEDS data, routing questions automatically and answering with citations.
+- Created a [50]-question evaluation suite and prompt injection tests, improving answer accuracy from [X]% to [X]% and closing [X] security gaps.
+
+**Why this project works for your pivot:**
+
+- It connects directly to your current domain, so interviewers see a natural progression.
+- It shows evaluation and security testing, which most portfolio projects skip.
+- It's a real, deployed application, not a notebook, which is what separates AI engineers from analysts.
+

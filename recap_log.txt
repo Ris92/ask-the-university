@@ -1,0 +1,8 @@
+## 2026-10-19 10:49
+
+- Read "The plan.txt" (overall project vision: RAG + SQL agent + routing + eval)
+- Read "Stage 1 Plan RAG over University Policy Documents.docx" (detailed Stage 1 implementation plan)
+- Created project CLAUDE.md capturing stack, folder layout, key conventions, eval methodology, and a flagged model-ID discrepancy (claude-haiku-5-5 vs. verified claude-haiku-4-5)
+- Set up project-scoped /recap command (.claude/commands/recap.md) to summarize sessions and append to this running log
+- Next: start Stage 1 setup — GitHub repo, folder layout, venv, package install
+
