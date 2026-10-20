@@ -6,6 +6,9 @@
 __pycache__/
 *.pyc
 
+# Dev/notebook tooling deps — not needed to run the app, kept local-only
+requirements-dev.txt
+
 # Vector index — rebuilt from data/raw/*.pdf by ingest.py, not source of truth
 data/chroma/
 
@@ -13,3 +16,4 @@ data/chroma/
 Stage 1 Plan RAG over University Policy Documents.docx
 The plan.txt
 recap_log.txt
+virtual environment details.txt

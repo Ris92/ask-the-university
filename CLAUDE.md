@@ -41,7 +41,8 @@ ask-the-university/
 │   └── results.csv     # recorded answers/sources from eval runs
 ├── .env                 # ANTHROPIC_API_KEY — NEVER commit
 ├── .gitignore
-└── requirements.txt
+├── requirements.txt       # app runtime deps only — see note below
+└── requirements-dev.txt   # optional: Jupyter/notebook tooling
 ```
 
 ## Key conventions — don't deviate without discussing
@@ -70,11 +71,31 @@ ask-the-university/
 
 ## Model note
 
-The Stage 1 plan doc specifies `claude-haiku-5-5` (model string `"claude-haiku-5-5"`).
-**This could not be verified as a real, current Anthropic model ID as of the model
-catalog available when this file was written** — the current Haiku is
-`claude-haiku-4-5`. Confirm the correct model string before wiring up `ask.py`, rather
-than trusting the doc's string blindly. Update this note once confirmed.
+**LLM provider is not finalized.** The Stage 1 plan doc was written assuming the
+Claude API (`claude-haiku-5-5` — unverified; current Haiku is `claude-haiku-4-5` if
+Claude is used). As of 2026-10-20, leaning toward OpenAI instead, not yet decided.
+Do not assume either provider when touching `ask.py` or `.env` — confirm first.
+Once decided, update this note, `.env`'s key name (`ANTHROPIC_API_KEY` vs.
+`OPENAI_API_KEY`), the Costs section below, and `requirements.txt`.
+
+## Dependencies — two requirements files, not one
+
+`requirements.txt` holds only the real runtime dependency tree of the five app
+packages (`pypdf`, `chromadb`, `sentence-transformers`, `openai`/`anthropic`,
+`python-dotenv`) — verified by installing just those five into a clean environment
+and freezing it, not hand-picked. `requirements-dev.txt` is the rest: the entire
+Jupyter/IPython/notebook stack, which the project's own dev environment also has
+installed but the app itself never imports. Install both only if you want to explore
+the code in a notebook:
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+**If you add a new import to `ingest.py`/`ask.py`, re-derive `requirements.txt` the
+same way** (fresh env, install just the app's direct dependencies, freeze) rather than
+hand-editing it or re-freezing the dev environment wholesale — otherwise Jupyter's
+dependency tree silently leaks back into the app's requirements file.
 
 ## Commands
 
@@ -82,7 +103,7 @@ than trusting the doc's string blindly. Update this note once confirmed.
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install pypdf chromadb sentence-transformers anthropic python-dotenv
-pip freeze > requirements.txt
+pip freeze > requirements.txt   # only if installed in a clean, app-only environment
 
 python src/ingest.py            # build/rebuild the vector index from data/raw/*.pdf
 python src/ask.py "What is the last day to withdraw from a class with a W?"
