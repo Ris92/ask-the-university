@@ -12,6 +12,9 @@ requirements-dev.txt
 # Vector index — rebuilt from data/raw/*.pdf by ingest.py, not source of truth
 data/chroma/
 
+# Policy PDFs — too large for a public repo; SOURCES.md documents where to get them instead
+data/raw/*.pdf
+
 # Personal planning docs — kept locally for reference, not part of the public repo
 Stage 1 Plan RAG over University Policy Documents.docx
 The plan.txt
