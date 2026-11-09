@@ -15,6 +15,11 @@ data/chroma/
 # Policy PDFs — too large for a public repo; SOURCES.md documents where to get them instead
 data/raw/*.pdf
 
+# IPEDS raw CSVs — 129MB total, too large for a public repo; data/ipeds/SOURCES.md
+# documents the verified download URLs. Dictionaries (data/ipeds/dictionaries/) are
+# small (~1MB) and ARE committed — useful schema reference, not excluded here.
+data/ipeds/raw/*.csv
+
 # Personal planning docs — kept locally for reference, not part of the public repo
 Stage 1 Plan RAG over University Policy Documents.docx
 The plan.txt
