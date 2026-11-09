@@ -1,0 +1,21 @@
+question,expected_answer,source,page
+"When do semester and first-session classes begin for Autumn 2026?","Tuesday, August 25, 2026","academic_calendar_2023-2028.pdf",1
+"What is the minimum cumulative GPA required for a first-year undergraduate to meet SAP standards by the end of their first academic year?","1.80","sap_policy.pdf",3
+"What percentage of attempted credit hours must undergraduate and graduate students successfully complete to meet SAP's quantitative measure?","67 percent","sap_policy.pdf",4
+"What is the Late Payment Fee amount assessed on August 25 for Autumn semester?","$200","refund_schedule.pdf",1
+"What is the last day for a 100% tuition refund for Autumn semester 7-week session 1?","Friday, August 28","refund_schedule.pdf",1
+"How long can a final exam last, and how long is finals week?","A final exam lasts no longer than two hours; finals week is no more than five days.","academic_policies_guide.pdf",4
+"How many credit points per credit hour does a grade of A- earn?","3.7","academic_policies_guide.pdf",9
+"What is the credit-hour range for undergraduate Junior class standing?","60-89 credit hours","academic_policies_guide.pdf",8
+"How many graduate credit hours can an undergraduate senior complete under Senior Petition?","Up to nine","academic_policies_guide.pdf",13
+"Is unauthorized use of generative AI to complete academic activities considered academic misconduct under the Code of Student Conduct?","Yes, it is explicitly listed as academic misconduct.","code_of_conduct.pdf",4
+"How long can a student be absent from the university before losing their status as a 'student' under the Code of Student Conduct?","Two complete, consecutive terms.","code_of_conduct.pdf",3
+"Who should complaints regarding academic misconduct be reported to?","The committee on academic misconduct.","code_of_conduct.pdf",8
+"What are the prerequisites for the course Digital Marketing (course 4232)?","4201, 4202, and BusMHR 2292, or equivalent.","2026-27_course_bulletin.pdf",75
+"What is the prerequisite for 'Major Readings in African American and African Studies' (course 2201)?","English 1110.","2026-27_course_bulletin.pdf",10
+"Which are the seven wonders of the world?","NOT_IN_DOCS","",
+"What is the parking fee for visitors to campus?","NOT_IN_DOCS","",
+"What is the Wi-Fi password for the dormitories?","NOT_IN_DOCS","",
+"Who is the head coach of the Ohio State football team?","NOT_IN_DOCS","",
+"On September 4, what tuition refund percentage applies specifically to the Autumn semester overall (not the 7-week session 1)?","75% refund","refund_schedule.pdf",2
+"What is the deadline to apply the Grade Forgiveness Rule for a course taken during a seven-week session in the autumn semester?","The fifth Friday.","academic_policies_guide.pdf","11-12"
