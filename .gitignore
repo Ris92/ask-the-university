@@ -20,6 +20,9 @@ data/raw/*.pdf
 # small (~1MB) and ARE committed — useful schema reference, not excluded here.
 data/ipeds/raw/*.csv
 
+# IPEDS DuckDB file — rebuilt from data/ipeds/raw/*.csv by load_ipeds.py, not source of truth
+data/ipeds/ipeds.duckdb
+
 # Personal planning docs — kept locally for reference, not part of the public repo
 Stage 1 Plan RAG over University Policy Documents.docx
 The plan.txt

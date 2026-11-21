@@ -9,8 +9,9 @@ A chat assistant that answers questions about a public university using two tool
   pulled from the U.S. Dept. of Education's public IPEDS dataset.
 
 An agent decides which tool to use (or both) and answers with citations. Built in
-stages; current stage: **Stage 1 — RAG over documents only** (see
-`Stage 1 Plan RAG over University Policy Documents.docx` for the full step-by-step).
+stages. **Stage 1 (RAG over documents) is complete.** Current stage: **Stage 2 —
+SQL agent over IPEDS data** (see `Stage 2 Plan SQL Tool over IPEDS Data.docx` for
+the full step-by-step).
 
 Portfolio project — no confidential/employer data. Uses a public university other than
 the author's employer.
@@ -22,10 +23,12 @@ the author's employer.
 - `sentence-transformers` (`BAAI/bge-small-en-v1.5`) — local, free embeddings
 - `ChromaDB` (`PersistentClient`, on disk) — vector store, cosine space
 - OpenAI API (`gpt-4o-mini`) — answer generation
+- `duckdb` — embedded OLAP database for the IPEDS SQL agent (Stage 2); chosen over
+  Databricks Delta tables for zero-setup/portability, matching ChromaDB's
+  single-file precedent from Stage 1
+- `sqlglot` — SQL parsing/validation for the Stage 2 guardrails (parse check,
+  statement-type check, table allowlist, forbidden functions)
 - Flask or FastAPI (later stage) — chat interface
-- Databricks Free Edition — optional alternative to local ChromaDB (Delta tables +
-  Databricks Vector Search); keep the local version working too since it's easier for
-  interviewers to run from GitHub
 
 ## Folder layout
 
@@ -33,9 +36,17 @@ the author's employer.
 ask-the-university/
 ├── data/raw/          # policy PDFs — never commit the PDFs themselves if large; do commit SOURCES.md
 ├── data/chroma/        # vector index, rebuilt by ingest.py — gitignored
+├── data/ipeds/raw/            # 12 IPEDS CSVs (4 surveys x 2021-2023) — gitignored, see SOURCES.md
+├── data/ipeds/dictionaries/   # matching .xlsx codebooks — committed, small
+├── data/ipeds/ipeds.duckdb    # built by load_ipeds.py — gitignored, not source of truth
 ├── src/
 │   ├── ingest.py       # extract + chunk + embed + index (Stage 1, Steps 2-3)
-│   └── ask.py          # retrieve + answer with citations (Stage 1, Step 4)
+│   ├── ask.py          # retrieve + answer with citations (Stage 1, Step 4)
+│   ├── load_ipeds.py   # stack raw CSVs into DuckDB + build clean views (Stage 2, Step 2)
+│   ├── schema.md        # IPEDS schema description sent to the LLM (Stage 2, Step 3)
+│   └── sql_agent.py    # generate_sql() + guardrails (Stage 2, Steps 4-5)
+├── tests/
+│   └── test_guardrails.py   # pytest suite for sql_agent.py's guardrails (Stage 2, Step 5)
 ├── eval/
 │   ├── questions.csv   # hand-written test questions (Stage 1, Step 5)
 │   └── results.csv     # recorded answers/sources from eval runs
@@ -162,11 +173,129 @@ to confirm none were close enough to the 0.55 floor to risk a new false positive
   model's document preference (prompt change) or restructuring the data, not a
   retrieval-parameter tweak.
 
+## Stage 2: IPEDS data pipeline (`load_ipeds.py`)
+
+`src/load_ipeds.py` stacks the 12 raw CSVs (4 surveys x 2021-2023) into
+`raw_hd`/`raw_ef`/`raw_gr`/`raw_ic` tables, then builds 4 clean views
+(`institutions`, `fall_enrollment`, `graduation_rates`, `tuition`) with decoded
+codes and readable column names. Run with `python src/load_ipeds.py` — free,
+local, no API calls. Spot-checked against Ohio State University's real published
+numbers (~60K enrollment, ~88% six-year grad rate, real tuition figures) — all
+matched, across all 3 years.
+
+**Column/code mappings were verified against the actual `.xlsx` dictionaries in
+`data/ipeds/dictionaries/`, not copied from the plan doc's example code.** The
+plan's template only worked out-of-the-box for `institutions`/`fall_enrollment`
+(HD/EF); `graduation_rates` (GR) and `tuition` (IC_AY) needed real investigation —
+GR is one row per (institution, cohort-type) via `GRTYPE`/`CHRTSTAT` codes, and
+IC_AY stores tuition/fees as 6 separate numbered column-pairs by level x residency.
+If you touch these views, re-verify against the dictionary rather than guessing
+from column names.
+
+**Three real data-quality gotchas found while writing this, all handled in the
+script — don't "clean up" these away:**
+- **Encoding is Windows-1252, not UTF-8** (`encoding='windows-1252'` on every
+  `read_csv_auto`). Confirmed via raw bytes — institution director names contain
+  accented characters (e.g. "Saúl Jiménez"). DuckDB's `encoding='latin-1'` alias
+  rejects this file as "not latin-1 encoded" even though plain Latin-1 should
+  never fail — use `'windows-1252'` specifically.
+- **`hd2023.csv` has a UTF-8 BOM** glued onto its first header cell. Decoded
+  under windows-1252, this becomes the literal 3-character string `"ï»¿UNITID"`
+  (not a single U+FEFF) — `_select_for_year()` detects and renames it. Left
+  unfixed, every 2023 institution row would silently get a NULL `unit_id`.
+- **`hd2022.csv` has a literal tab byte inside a quoted name field** ("Ora<TAB>Horn
+  Prouser"), which fools DuckDB's CSV dialect sniffer into guessing tab-delimited
+  and then rejecting the whole file as ragged. Fixed by pinning
+  `delim=',', quote='"', escape='"', strict_mode=false` explicitly instead of
+  relying on auto-detection — verified this doesn't corrupt that row.
+- Several code columns (`GRTYPE`, `EFALEVEL`) are fixed-width and come back
+  **space-padded** (`' 2'` not `'2'`) — always `TRIM()` before comparing in a
+  `CASE`/`WHERE`. Numeric casts use `TRY_CAST`, not `CAST`, since blank/suppressed
+  cells are common in IPEDS and a plain `CAST` would crash the whole query.
+
+## Stage 2: SQL agent (`sql_agent.py`)
+
+`src/sql_agent.py` builds up in the plan's own steps:
+
+- **Step 4 — `generate_sql()`**: OpenAI `gpt-4o-mini` (not Anthropic, same provider
+  substitution as `ask.py`) writes DuckDB SQL from `src/schema.md` + the question,
+  returned inside `<sql></sql>` tags, or `<sql>CANNOT_ANSWER</sql>` if the question
+  is out of scope. Retries pass the previous SQL + DB error back so the model can
+  self-correct.
+- **Step 5 — guardrails** (`validate_sql()`, `run_sql()`): layered on purpose — if
+  one check misses something, the next still blocks it. Parse check (`sqlglot`,
+  exactly one statement) -> statement-type check (SELECT only) -> table allowlist
+  (`ALLOWED_TABLES` + CTE names) -> forbidden-function check (`read_csv` etc.) ->
+  auto-added `LIMIT 200` -> **read-only DuckDB connection** (the real safety net —
+  verified it blocks writes against a real base table, not just views) ->
+  `enable_external_access = false` -> 10s query timeout via `threading.Timer` +
+  `con.interrupt()`. All verified working directly, including a forced-slow
+  cross-join to confirm the timeout actually fires. Tests in `tests/test_guardrails.py`
+  (run with `pytest tests/test_guardrails.py`).
+
+**Multi-campus name-matching bug found and fixed during Step 4 testing — don't
+remove the `matched_institution` CTE pattern from `schema.md`.** An `ILIKE` name
+match can legitimately return several institutions at once (Ohio State has 5
+campuses, Michigan has 3) — the fix disambiguates by picking the highest-enrollment
+match, applied as a standard CTE on every name-based lookup, not only when
+ambiguity is expected (the model can't know in advance whether a name is
+ambiguous). Verified this generalizes: tested on a school/table combo with no
+matching worked example (Indiana University + tuition) and it correctly picked
+Bloomington over 7 other matches, including an unrelated school that also
+substring-matched ("Indiana University of Pennsylvania").
+
+**Known, deferred issue: nickname/official-name mismatches.** `ILIKE
+'%penn state university%'` matches nothing, because IPEDS's official name is
+"Pennsylvania State University-Main Campus" — "Penn State" isn't a substring of
+"Pennsylvania State". Unlike the multi-campus bug, this returns zero rows
+*silently* (looks like "no data" rather than an obvious failure). Decided to
+defer fixing this until Step 7's eval shows how often it actually comes up,
+rather than guessing at a general fix now.
+
+**Step 6 — `ask_data()` + `summarize()`:** ties `generate_sql()` ->
+`validate_sql()` -> `run_sql()` together with a retry loop (`MAX_RETRIES = 2`;
+a `duckdb.Error` feeds the error back to the model, a `UnsafeSQL` guardrail
+block is returned immediately, never retried). `summarize()` makes a second
+OpenAI call to turn the result rows into a 1-3 sentence answer citing IPEDS and
+the year(s) shown. Runnable as `python src/sql_agent.py "<question>"`, which
+prints the answer and the exact SQL it ran — same transparency role as Stage
+1's citations.
+
+### Step 7 eval results (2026-11-20, `gpt-4o-mini`)
+
+`eval/sql_questions.csv` (25 questions: 15 answerable, 4 unanswerable, 3
+ambiguous, 3 attack) run through `eval/run_sql_eval.py`, which scores
+answerable questions by executing both the gold SQL and the agent's SQL
+against the live DuckDB and comparing sorted, float-rounded row sets (not SQL
+text — two different queries can both be right). Results saved to
+`eval/sql_eval_results.csv`.
+
+- **Execution accuracy: 100% (15/15)** — every answerable question's SQL
+  produced the same result set as the hand-written gold query.
+- **Refusal accuracy: 100% (7/7)** — all 4 unanswerable questions and all 3
+  prompt-injection/attack questions were declined. Notably, the model refused
+  all 7 by returning `CANNOT_ANSWER` itself, before any malicious/invalid SQL
+  was ever generated — the guardrails in `validate_sql()`/`run_sql()` were
+  never actually exercised by this eval set, since nothing unsafe reached them.
+- **Average attempts: 1.00 (all 25)** — zero retries needed anywhere; no
+  database errors on the first try.
+- **Valid SQL rate: 89% (16/18, answerable+ambiguous)** — not a bug. The 2
+  "misses" are 2 of the 3 ambiguous questions ("typical cost of attending,"
+  "enrollment growth at top universities"), where the model chose
+  `CANNOT_ANSWER` over guessing at an underspecified question. The 3rd
+  ambiguous question ("biggest university in Texas") it answered by
+  enrollment, a reasonable interpretation.
+
+No fixes needed after this first run — unlike Stage 1, nothing here required a
+`schema.md` rule change or a `TOP_K`-style parameter tune.
+
 ## Never commit
 
 - `.env` (API key)
 - `.venv/`
 - `data/chroma/` (rebuilt from `data/raw/` by `ingest.py` — not source of truth)
+- `data/ipeds/raw/*.csv` (too large; `data/ipeds/SOURCES.md` documents download URLs)
+- `data/ipeds/ipeds.duckdb` (rebuilt from `data/ipeds/raw/*.csv` by `load_ipeds.py`)
 
 ## Costs
 
